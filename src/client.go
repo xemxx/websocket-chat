@@ -1,11 +1,12 @@
 package main
 
 import (
+	"github.com/satori/go.uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
-	"log"
+	"fmt"
 	"time"
-	"bytes"
+
 )
 
 // Configure the upgrader
@@ -22,12 +23,9 @@ var (
 	space   = []byte{' '}
 )
 type Client struct {
-	hub *Hub
-
-	// The websocket connection.
+	manager *ClientManager
+	uuid  string
 	conn *websocket.Conn
-
-	// Buffered channel of outbound messages.
 	send chan []byte
 }
 
@@ -36,16 +34,19 @@ type Message struct {
 	Username string `json:"username"`
 	Message  string `json:"message"`
 }
+//TODO: 声明消息json格式
 
-func HandleWs(hub *Hub,w http.ResponseWriter, r *http.Request){
+func HandleWs(manager *ClientManager,w http.ResponseWriter, r *http.Request){
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Println(err)
+		fmt.Println(err)
 		return
 	}
-	client := &Client{hub: hub, conn: conn, send: make(chan []byte, 256)}
-	client.hub.register <- client
+	u,_:=uuid.NewV4()
+	client := &Client{manager:manager,uuid: u.String(), conn: conn, send: make(chan []byte, 256)}
+	manager.register <- client
 
+	//TODO: 初始读取对应用户是否有未读消息，并循环推送消息
 	go client.pushMsg()
 	go client.pullMsg()
 }
@@ -66,8 +67,8 @@ func (c *Client) pushMsg(){
 				if err != nil{
 					return
 				}
+				//TODO: 重写消息发送的json格式并发送
 				w.Write(msg)
-
 				//消息队列
 				n := len(c.send)
 				for i := 0; i < n; i++ {
@@ -83,18 +84,32 @@ func (c *Client) pushMsg(){
 
 func (c *Client) pullMsg(){
 	defer func() {
-		c.hub.unregister <- c
+		c.manager.unregister <- c
 		c.conn.Close()
 	}()
 	for {
-		_,msg,err:=c.conn.ReadMessage()
+		//_,msg,err:=c.conn.ReadMessage()
+		_,_,err:=c.conn.ReadMessage()
 		if err!= nil{
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("error: %v", err)
+				fmt.Printf("error: %v", err)
 			}
 			break
 		}
-		msg =bytes.TrimSpace(bytes.Replace(msg,newline,space,-1))
-		c.hub.broadcast <- msg
+		//TODO: 解析msg的json
+		//TODO: 通过账户寻找发送账户是否在线并推送
+		//TODO: 保存读取到的消息到数据库
+		
+
+		//msg =bytes.TrimSpace(bytes.Replace(msg,newline,space,-1))
+		//c.manager.broadcast <- msg
 	}
+}
+//TODO: 初始化登录，并返回uuid
+func login(w http.ResponseWriter, r *http.Request){
+	return 
+}
+//TODO: 释放用户内存以及uuid有效期
+func logout(w http.ResponseWriter, r *http.Request){
+	return 
 }

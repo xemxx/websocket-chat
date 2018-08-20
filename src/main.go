@@ -10,12 +10,13 @@ var addr = flag.String("addr", ":8080", "http service address")
 
 func main(){
 	flag.Parse()
-	hub := newHub()
-	go hub.run()
+	manager := newClientManager()
+	go manager.run()
 	http.HandleFunc("/",handleHttp)
 	http.HandleFunc("/ws", func(w http.ResponseWriter,r *http.Request){
-		HandleWs(hub,w,r)
+		HandleWs(manager,w,r)
 	})
+	//http.HandleFunc("/ws", HandleWs)
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

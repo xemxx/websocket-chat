@@ -4,19 +4,18 @@ import (
 	"net/http"
 	"log"
 	"flag"
+	"websockt-chat/src/client"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
 
 func main(){
 	flag.Parse()
-	manager := newClientManager()
-	go manager.run()
+	go client.Run()
 	http.HandleFunc("/",handleHttp)
-	http.HandleFunc("/ws", func(w http.ResponseWriter,r *http.Request){
-		HandleWs(manager,w,r)
-	})
-	//http.HandleFunc("/ws", HandleWs)
+	http.HandleFunc("/ws", client.HandleWs)
+	http.HandleFunc("/login", client.Login)
+	http.HandleFunc("/logout", client.Logout)
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)

@@ -1,4 +1,4 @@
-package main
+package client
 
 import (
 	"github.com/satori/go.uuid"
@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"fmt"
 	"time"
-
 )
 
 // Configure the upgrader
@@ -23,8 +22,7 @@ var (
 	space   = []byte{' '}
 )
 type Client struct {
-	manager *ClientManager
-	uuid  string
+	uuid  []byte
 	conn *websocket.Conn
 	send chan []byte
 }
@@ -34,23 +32,29 @@ type Message struct {
 	Username string `json:"username"`
 	Message  string `json:"message"`
 }
+
 //TODO: 声明消息json格式
 
-func HandleWs(manager *ClientManager,w http.ResponseWriter, r *http.Request){
+//建立websockt连接
+func HandleWs(w http.ResponseWriter, r *http.Request){
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
 	u,_:=uuid.NewV4()
-	client := &Client{manager:manager,uuid: u.String(), conn: conn, send: make(chan []byte, 256)}
+	client := &Client{uuid: u.Bytes(), conn: conn, send: make(chan []byte, 256)}
 	manager.register <- client
 
 	//TODO: 初始读取对应用户是否有未读消息，并循环推送消息
 	go client.pushMsg()
 	go client.pullMsg()
+	
+	//TODO:主动推送uuid让前台绑定用户返回用户id
+	client.send<-client.uuid
 }
 
+//推送消息
 func (c *Client) pushMsg(){
 	defer func() {
 		c.conn.Close()
@@ -69,7 +73,7 @@ func (c *Client) pushMsg(){
 				}
 				//TODO: 重写消息发送的json格式并发送
 				w.Write(msg)
-				//消息队列
+				//消息队列，节约推送时间
 				n := len(c.send)
 				for i := 0; i < n; i++ {
 					w.Write(newline)
@@ -84,7 +88,7 @@ func (c *Client) pushMsg(){
 
 func (c *Client) pullMsg(){
 	defer func() {
-		c.manager.unregister <- c
+		manager.unregister <- c
 		c.conn.Close()
 	}()
 	for {
@@ -104,12 +108,4 @@ func (c *Client) pullMsg(){
 		//msg =bytes.TrimSpace(bytes.Replace(msg,newline,space,-1))
 		//c.manager.broadcast <- msg
 	}
-}
-//TODO: 初始化登录，并返回uuid
-func login(w http.ResponseWriter, r *http.Request){
-	return 
-}
-//TODO: 释放用户内存以及uuid有效期
-func logout(w http.ResponseWriter, r *http.Request){
-	return 
 }

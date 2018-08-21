@@ -1,4 +1,4 @@
-package main
+package client
 
 // 聊天室类型
 type ClientManager struct {
@@ -16,26 +16,19 @@ func newClientManager() *ClientManager {
 		clients:    make(map[*Client]bool),
 	}
 }
+var manager=newClientManager()
 
-func (h *ClientManager) run() {
+
+func Run() {
 	for {
 		select {
-		case client := <-h.register:
-			h.clients[client] = true
-		case client := <-h.unregister:
-			if _, ok := h.clients[client]; ok {
-				delete(h.clients, client)
+		case client := <-manager.register:
+			manager.clients[client] = true
+		case client := <-manager.unregister:
+			if _, ok := manager.clients[client]; ok {
+				delete(manager.clients, client)
 				close(client.send)
 			}
-		// case message := <-h.broadcast:
-		// 	for client := range h.clients {
-		// 		select {
-		// 		case client.send <- message:
-		// 		default:
-		// 			close(client.send)
-		// 			delete(h.clients, client)
-		// 		}
-		// 	}
 		}
 	}
 }

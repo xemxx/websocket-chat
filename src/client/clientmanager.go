@@ -16,6 +16,7 @@ func newClientManager() *ClientManager {
 		clients:    make(map[*Client]bool),
 	}
 }
+
 var manager=newClientManager()
 
 

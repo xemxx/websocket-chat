@@ -1,7 +1,8 @@
 package client
 
 import (
-	"github.com/satori/go.uuid"
+	"encoding/json"
+	// "github.com/satori/go.uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"fmt"
@@ -22,15 +23,22 @@ var (
 	space   = []byte{' '}
 )
 type Client struct {
-	uuid  []byte
+	uuid string
 	conn *websocket.Conn
 	send chan []byte
 }
 
-type Message struct {
-	Email    string `json:"email"`
-	Username string `json:"username"`
+type PullMsg struct {
+	Type     string `json:"type"`
+	Uuid     string `json:"uid"`
+	ToUuid	 string `json:"touid"`
 	Message  string `json:"message"`
+}
+
+type PushMsg struct{
+	Err  bool		//是否错误
+	Code int		//错误代码
+	Message string  //具体数据
 }
 
 //TODO: 声明消息json格式
@@ -42,16 +50,17 @@ func HandleWs(w http.ResponseWriter, r *http.Request){
 		fmt.Println(err)
 		return
 	}
-	u,_:=uuid.NewV4()
-	client := &Client{uuid: u.Bytes(), conn: conn, send: make(chan []byte, 256)}
+	// u,_:=uuid.NewV4()
+	// client := &Client{uuid: u.Bytes(), conn: conn, send: make(chan []byte, 256)}
+	client := &Client{conn: conn, send: make(chan []byte, 256)}
 	manager.register <- client
 
 	//TODO: 初始读取对应用户是否有未读消息，并循环推送消息
 	go client.pushMsg()
 	go client.pullMsg()
 	
-	//TODO:主动推送uuid让前台绑定用户返回用户id
-	client.send<-client.uuid
+	// //TODO:主动推送uuid让前台绑定用户返回用户id
+	// client.send<-client.uuid
 }
 
 //推送消息
@@ -71,7 +80,7 @@ func (c *Client) pushMsg(){
 				if err != nil{
 					return
 				}
-				//TODO: 重写消息发送的json格式并发送
+				//TODO: 对消息进行判定然后重写消息发送的json格式并发送
 				w.Write(msg)
 				//消息队列，节约推送时间
 				n := len(c.send)
@@ -92,18 +101,46 @@ func (c *Client) pullMsg(){
 		c.conn.Close()
 	}()
 	for {
-		//_,msg,err:=c.conn.ReadMessage()
-		_,_,err:=c.conn.ReadMessage()
+		_,msgJson,err:=c.conn.ReadMessage()
 		if err!= nil{
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				fmt.Printf("error: %v", err)
 			}
 			break
 		}
-		//TODO: 解析msg的json
-		//TODO: 通过账户寻找发送账户是否在线并推送
-		//TODO: 保存读取到的消息到数据库
-		
+		//TODO: 解析msg的json finish
+		msg:= PullMsg{}
+		if json.Unmarshal(msgJson,&msg) != nil{
+			//TODO:返回错误信息
+			
+			return
+		}
+
+		//TODO: 通过账户寻找发送账户是否在线并推送  finish
+		switch msg.Type{
+			case "bind":
+				c.uuid=msg.Uuid
+				//TODO:查询数据库是否有未读消息如有则推送
+			case "send":
+				for client:=range manager.clients{
+					if msg.ToUuid==client.uuid{
+						//TODO:按照固定json传输 finish
+						newSend:=PushMsg{
+							Err:false,
+							Code:200,
+							Message:msg.Message,
+						}
+						send,err:=json.Marshal(newSend)
+						if err !=nil{
+							//TODO:记录错误
+						}
+						client.send<-send
+					}
+				}
+		}
+
+		//TODO: 保存读取到的消息到数据库做聊天记录
+
 
 		//msg =bytes.TrimSpace(bytes.Replace(msg,newline,space,-1))
 		//c.manager.broadcast <- msg

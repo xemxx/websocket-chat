@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"log"
 	"flag"
-	"websockt-chat/src/client"
+	"websocket-chat/src/client"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
@@ -34,3 +34,4 @@ func handleHttp(w http.ResponseWriter, r *http.Request) {
 	}
 	http.ServeFile(w, r, "../web/home.html")
 }
+

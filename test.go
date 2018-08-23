@@ -1,29 +1,28 @@
 package main
 
 import(
-	"encoding/json"
-	"log"
+	"time"
 	"fmt"
 )
 
-type Account struct {
-    Email string
-    Password string
-    Money float64
-}
 
 func main() {
-    account := Account{
-        Email: "rsj217@gmail.com",
-        Password: "123456",
-        Money: 100.5,
-    }
+    fmt.Print(time.Now().Unix())
+    for_switch()
+}
 
-    rs, err := json.Marshal(account)
-    if err != nil{
-        log.Fatalln(err)
+func for_switch(){
+    for{
+        fmt.Print("继续下一次")
+        time.Sleep(time.Second*3)
+        switch{
+            case true:
+                if(true){
+                    continue
+                }
+        }
+        fmt.Print("跳出switch")
+        break
     }
-
-    fmt.Println(rs)
-    fmt.Println(string(rs))
+    fmt.Print("跳出for")
 }

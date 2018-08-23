@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"fmt"
 	"time"
+	"database/sql"
+	//"github.com/go-sql-driver/mysql"
 )
 
 // Configure the upgrader
@@ -55,12 +57,9 @@ func HandleWs(w http.ResponseWriter, r *http.Request){
 	client := &Client{conn: conn, send: make(chan []byte, 256)}
 	manager.register <- client
 
-	//TODO: 初始读取对应用户是否有未读消息，并循环推送消息
 	go client.pushMsg()
 	go client.pullMsg()
 	
-	// //TODO:主动推送uuid让前台绑定用户返回用户id
-	// client.send<-client.uuid
 }
 
 //推送消息
@@ -106,14 +105,20 @@ func (c *Client) pullMsg(){
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				fmt.Printf("error: %v", err)
 			}
-			break
+			return
 		}
 		//TODO: 解析msg的json finish
 		msg:= PullMsg{}
 		if json.Unmarshal(msgJson,&msg) != nil{
-			//TODO:返回错误信息
-			
-			return
+			//TODO:返回错误信息  finish
+			newSend:=PushMsg{
+				Err:true,
+				Code:401,
+				Message:"json error",
+			}
+			send,_:=json.Marshal(newSend)
+			c.send<-send
+			continue
 		}
 
 		//TODO: 通过账户寻找发送账户是否在线并推送  finish
@@ -122,7 +127,9 @@ func (c *Client) pullMsg(){
 				c.uuid=msg.Uuid
 				//TODO:查询数据库是否有未读消息如有则推送
 			case "send":
+				is_read:=0
 				for client:=range manager.clients{
+					//判断是否在线
 					if msg.ToUuid==client.uuid{
 						//TODO:按照固定json传输 finish
 						newSend:=PushMsg{
@@ -130,19 +137,39 @@ func (c *Client) pullMsg(){
 							Code:200,
 							Message:msg.Message,
 						}
-						send,err:=json.Marshal(newSend)
-						if err !=nil{
-							//TODO:记录错误
-						}
+						send,_:=json.Marshal(newSend)
 						client.send<-send
+						is_read=1
 					}
 				}
+				//TODO: 保存读取到的消息到数据库做聊天记录  finish
+				db, err := sql.Open("mysql", "root:123456@127.0.0.1:3306/chat?charset=utf8")
+				if err != nil {
+					fmt.Print(err)
+					db.Close()
+					continue
+				}
+				stmt,err:=db.Prepare("insert into msg(uid,touid,send_time,is_read,msg)values(?,?,?,?,?)")
+				if err != nil {
+					fmt.Print(err)
+					db.Close()
+					continue
+				}
+				_,err=stmt.Exec(c.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
+				if err != nil {
+					fmt.Print(err)
+				}
+				db.Close()
 		}
-
-		//TODO: 保存读取到的消息到数据库做聊天记录
 
 
 		//msg =bytes.TrimSpace(bytes.Replace(msg,newline,space,-1))
 		//c.manager.broadcast <- msg
 	}
+}
+func checkMsgErr(err error) {
+    if err != nil {
+		fmt.Print(err)
+		//TODO: 完善错误日志记录
+    }
 }

@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"time"
 	"database/sql"
-	//"github.com/go-sql-driver/mysql"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 // Configure the upgrader
@@ -40,6 +40,8 @@ type PullMsg struct {
 type PushMsg struct{
 	Err  bool		//是否错误
 	Code int		//错误代码
+	Uuid string 	//发送者
+	ToUuid string	//接受者
 	Message string  //具体数据
 }
 
@@ -110,7 +112,7 @@ func (c *Client) pullMsg(){
 		//TODO: 解析msg的json finish
 		msg:= PullMsg{}
 		if json.Unmarshal(msgJson,&msg) != nil{
-			//TODO:返回错误信息  finish
+			//TODO:返回错误信息  finish 
 			newSend:=PushMsg{
 				Err:true,
 				Code:401,
@@ -125,7 +127,28 @@ func (c *Client) pullMsg(){
 		switch msg.Type{
 			case "bind":
 				c.uuid=msg.Uuid
-				//TODO:查询数据库是否有未读消息如有则推送
+				//TODO:查询数据库是否有未读消息如有则推送  finish
+				db,err:=sql.Open("mysql","root:123456@tcp(127.0.0.1:3306)/chat")
+				if err != nil {
+					fmt.Print(err)
+					db.Close()
+					continue
+				}
+				rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=?",0,msg.Uuid)
+				if err != nil {
+					fmt.Print(err)
+					db.Close()
+					continue
+				}
+				for rows.Next(){
+					sendMsg:=new(PushMsg)
+					err = rows.Scan(&sendMsg.Uuid, &sendMsg.ToUuid,&sendMsg.Message)
+					sendMsg.Err=false
+					sendMsg.Code=200
+					send,_:=json.Marshal(*sendMsg)
+					c.send<-send
+				}
+				db.Close()
 			case "send":
 				is_read:=0
 				for client:=range manager.clients{
@@ -143,7 +166,7 @@ func (c *Client) pullMsg(){
 					}
 				}
 				//TODO: 保存读取到的消息到数据库做聊天记录  finish
-				db, err := sql.Open("mysql", "root:123456@127.0.0.1:3306/chat?charset=utf8")
+				db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/chat")
 				if err != nil {
 					fmt.Print(err)
 					db.Close()

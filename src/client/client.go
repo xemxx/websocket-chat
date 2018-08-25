@@ -54,8 +54,6 @@ func HandleWs(w http.ResponseWriter, r *http.Request){
 		fmt.Println(err)
 		return
 	}
-	// u,_:=uuid.NewV4()
-	// client := &Client{uuid: u.Bytes(), conn: conn, send: make(chan []byte, 256)}
 	client := &Client{conn: conn, send: make(chan []byte, 256)}
 	manager.register <- client
 
@@ -96,10 +94,17 @@ func (c *Client) pushMsg(){
 	}
 }
 
+//拉取消息
 func (c *Client) pullMsg(){
+	db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/chat")
+	if err != nil {
+		fmt.Print(err)
+		return 
+	}
 	defer func() {
 		manager.unregister <- c
 		c.conn.Close()
+		db.Close()
 	}()
 	for {
 		_,msgJson,err:=c.conn.ReadMessage()
@@ -128,16 +133,9 @@ func (c *Client) pullMsg(){
 			case "bind":
 				c.uuid=msg.Uuid
 				//TODO:查询数据库是否有未读消息如有则推送  finish
-				db,err:=sql.Open("mysql","root:123456@tcp(127.0.0.1:3306)/chat")
-				if err != nil {
-					fmt.Print(err)
-					db.Close()
-					continue
-				}
 				rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=?",0,msg.Uuid)
 				if err != nil {
 					fmt.Print(err)
-					db.Close()
 					continue
 				}
 				for rows.Next(){
@@ -148,7 +146,6 @@ func (c *Client) pullMsg(){
 					send,_:=json.Marshal(*sendMsg)
 					c.send<-send
 				}
-				db.Close()
 			case "send":
 				is_read:=0
 				for client:=range manager.clients{
@@ -166,28 +163,18 @@ func (c *Client) pullMsg(){
 					}
 				}
 				//TODO: 保存读取到的消息到数据库做聊天记录  finish
-				db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/chat")
-				if err != nil {
-					fmt.Print(err)
-					db.Close()
-					continue
-				}
 				stmt,err:=db.Prepare("insert into msg(uid,touid,send_time,is_read,msg)values(?,?,?,?,?)")
 				if err != nil {
 					fmt.Print(err)
-					db.Close()
 					continue
 				}
 				_,err=stmt.Exec(c.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
 				if err != nil {
 					fmt.Print(err)
 				}
-				db.Close()
+			case "getHistory":
+				c.getHistory(msg)
 		}
-
-
-		//msg =bytes.TrimSpace(bytes.Replace(msg,newline,space,-1))
-		//c.manager.broadcast <- msg
 	}
 }
 func checkMsgErr(err error) {
@@ -195,4 +182,28 @@ func checkMsgErr(err error) {
 		fmt.Print(err)
 		//TODO: 完善错误日志记录
     }
+}
+//TODO:待修改接口访问方式
+func (c *Client) getHistory(msg PullMsg){
+	db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/chat")
+	if err != nil {
+		fmt.Print(err)
+		return 
+	}
+	defer func(){
+		db.Close()
+	}()
+	rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and ((uid=? and touid=?) or (uid=? and touid=?))",1,msg.Uuid,msg.ToUuid,msg.ToUuid,msg.Uuid)
+	if err != nil {
+		fmt.Print(err)
+	}
+	//TODO: 待修改历史数据格式以及传输方式
+	for rows.Next(){
+		sendMsg:=new(PushMsg)
+		err = rows.Scan(&sendMsg.Uuid, &sendMsg.ToUuid,&sendMsg.Message)
+		sendMsg.Err=false
+		sendMsg.Code=200
+		send,_:=json.Marshal(*sendMsg)
+		c.send<-send
+	}
 }

@@ -6,12 +6,13 @@ import(
     "database/sql"
     _ "github.com/go-sql-driver/mysql"
     "encoding/json"
+    "net/http"
 )
 
 
 func main() {
-    fmt.Print(time.Now().Unix())
-    inpro()
+    fmt.Println(time.Now().Unix())
+    httptest()
 }
 
 func for_switch(){
@@ -59,4 +60,50 @@ func inpro(){
                     fmt.Println(string(send))
                 }
 				db.Close()
+}
+
+func httptest(){
+    http.HandleFunc("/",handleHttp)
+    err := http.ListenAndServe(":9090", nil)
+	if err != nil {
+		fmt.Println("ListenAndServe: ", err)
+	}
+}
+
+func handleHttp(w http.ResponseWriter, r *http.Request){
+    r.ParseForm()
+    fmt.Println(r.PostForm)
+    fmt.Println(r.PostFormValue("ad"))
+}
+
+type Msg struct {
+	Uuid string 
+	ToUuid string
+	Msg string
+	Send_time string
+}
+
+type PushMs struct{
+	Err  bool		//是否错误
+	Code int		//错误代码
+	Uuid string 	//发送者
+	ToUuid string	//接受者
+	Data map[string]Msg  //具体数据
+}
+func testz(){
+    push:=new(PushMs)
+    push.Data=make(map[string]Msg)
+	for i:=0;i<5;i++{
+		msg:=new(Msg)
+        msg.Msg="132"
+        msg.Send_time="12345678900"
+        msg.Uuid="1"
+        msg.ToUuid="2"
+        fmt.Println(msg)
+        sty:=fmt.Sprintf("%d", i)
+		push.Data[sty]=*msg
+	}
+    send,_:=json.Marshal(*push)
+    fmt.Println(string(send))
+
 }

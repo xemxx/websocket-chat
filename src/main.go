@@ -2,9 +2,9 @@ package main
 
 import (
 	"net/http"
-	"log"
 	"flag"
 	"websocket-chat/src/client"
+	"fmt"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")
@@ -17,9 +17,10 @@ func main(){
 	http.HandleFunc("/login", client.Login)
 	http.HandleFunc("/logout", client.Logout)
 	http.HandleFunc("/user/gethistory",handleGetHistory)
+	fmt.Println("Listen ",*addr)
 	err := http.ListenAndServe(*addr, nil)
 	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+		fmt.Println("ListenAndServe: ", err)
 	}
 }
 

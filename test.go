@@ -12,7 +12,7 @@ import(
 
 func main() {
     fmt.Println(time.Now().Unix())
-    httptest()
+    testz()
 }
 
 func for_switch(){
@@ -102,7 +102,8 @@ func testz(){
         fmt.Println(msg)
         sty:=fmt.Sprintf("%d", i)
 		push.Data[sty]=*msg
-	}
+    }
+    push.Data=nil
     send,_:=json.Marshal(*push)
     fmt.Println(string(send))
 

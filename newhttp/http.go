@@ -1,11 +1,11 @@
-package main
+package newhttp
+
 import (
 	"net/http"
 	"encoding/json"
 	"log"
 	"fmt"
-	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
+	"websocket-chat/mysql"
 )
 
 type Msg struct {
@@ -24,7 +24,7 @@ type PushMsg struct{
 	ErrMsg string	//具体错误消息
 }
 
-func handleHttp(w http.ResponseWriter, r *http.Request) {
+func HandleHttp(w http.ResponseWriter, r *http.Request) {
 	log.Println(r.URL)
 	if r.URL.Path != "/" {
 		http.Error(w, "Not found", http.StatusNotFound)
@@ -36,14 +36,10 @@ func handleHttp(w http.ResponseWriter, r *http.Request) {
 	}
 	http.ServeFile(w, r, "../web/home.html")
 }
-
-func handleGetHistory(w http.ResponseWriter, r *http.Request){
+//TODO:优化接口，准确推送阅读消息
+func HandleGetHistory(w http.ResponseWriter, r *http.Request){
 	log.Println(r.URL)
-	db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/chat")
-	if err != nil {
-		fmt.Println(err)
-		return 
-	}
+	db := mysql.NewMysql()
 	defer db.Close()
 	posts:=r.PostForm
 	rows,err:=db.Query("select uid,touid,msg,send_time from msg where is_read=? and  ((uid=? and touid=?) or (uid=? and touid=?)) order by send_time desc limit ?",1,posts["uid"],posts["touid"],posts["touid"],posts["uid"],posts["num"])

@@ -7,8 +7,7 @@ import (
 	"net/http"
 	"fmt"
 	"time"
-	"database/sql"
-	_ "github.com/go-sql-driver/mysql"
+	"websocket-chat/mysql"
 )
 
 // Configure the upgrader
@@ -96,11 +95,7 @@ func (c *Client) pushMsg(){
 
 //拉取消息
 func (c *Client) pullMsg(){
-	db, err := sql.Open("mysql", "root:123456@tcp(127.0.0.1:3306)/chat")
-	if err != nil {
-		fmt.Print(err)
-		return 
-	}
+	db := mysql.NewMysql()
 	defer func() {
 		manager.unregister <- c
 		c.conn.Close()
@@ -156,6 +151,7 @@ func (c *Client) pullMsg(){
 					rows.Close()
 					continue
 				}
+				//TODO:删除自动推送，采用接口请求方式获取未读消息列表，然后准确推送未读消息
 				for rows.Next(){
 					sendMsg:=new(PushMsg)
 					err = rows.Scan(&sendMsg.Uuid, &sendMsg.ToUuid,&sendMsg.Message)

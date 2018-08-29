@@ -131,9 +131,26 @@ func (c *Client) pullMsg(){
 		//TODO: 通过账户寻找发送账户是否在线并推送  finish
 		switch msg.Type{
 			case "bind":
+				for client:=range manager.clients{
+					//删除其他已在线的连接
+					if msg.Uuid==client.uuid{
+						client.conn.Close()
+						manager.unregister <- client
+						//TODO:改为redis的方式解决登录和注销问题
+					}
+				}
 				c.uuid=msg.Uuid
+				//反馈订阅成功
+				newSend:=PushMsg{
+					Err:false,
+					Code:200,
+					Message:"bind success",
+				}
+				send,_:=json.Marshal(newSend)
+				c.send<-send
+
 				//TODO:查询数据库是否有未读消息如有则推送  finish
-				rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=?",0,msg.Uuid)
+				rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=? order by send_time desc",0,msg.Uuid)
 				if err != nil {
 					fmt.Print(err)
 					rows.Close()
@@ -148,6 +165,7 @@ func (c *Client) pullMsg(){
 					c.send<-send
 				}
 				rows.Close()
+				
 			case "send":
 				is_read:=0
 				for client:=range manager.clients{

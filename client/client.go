@@ -37,11 +37,11 @@ type PullMsg struct {
 }
 
 type PushMsg struct{
-	Err  bool		//是否错误
-	Code int		//错误代码
-	Uuid string 	//发送者
-	ToUuid string	//接受者
-	Message string  //具体数据
+	Err  bool		`json:"error"`
+	Code int		`json:"code"`
+	Uuid string 	`json:"uid"`
+	ToUuid string	`json:"touid"`
+	Message string  `json:"msg"`
 }
 
 //TODO: 声明消息json格式

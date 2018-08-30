@@ -14,36 +14,35 @@ type Config struct {
 	IdleTimeout time.Time    // connect max life time.
   }
 
-  func getConf() (*Config,error){
+func getConf() (*Config,error){
 	file, _ := os.Open("../conf/database.json")
-    defer file.Close()
-
-    decoder := json.NewDecoder(file)
-    conf := Config{}
+  	defer file.Close()
+	decoder := json.NewDecoder(file)
+	conf := Config{}
 	err := decoder.Decode(&conf)
 	if err != nil {
 		return &Config{},err
 	}
 	return &conf,nil
-  }
-  // NewMysql initialize mysql connection .
-  func NewMysql() (db *sql.DB) {
+}
+// NewMysql initialize mysql connection .
+func NewMysql() (db *sql.DB) {
 	// TODO add query exec and transaction timeout .
 	c,err:=getConf()
 	
 	db, err = Open(c)
 	if err != nil {
-	  panic(err)
+		panic(err)
 	}
 	return db
-  }
-  func Open(c *Config) (db *sql.DB, err error) {
+}
+func Open(c *Config) (db *sql.DB, err error) {
 	db, err = sql.Open("mysql", c.DSN)
 	if err != nil {
-	  return nil, err
+		return nil, err
 	}
 	// db.SetMaxOpenConns(c.Active)
 	// db.SetMaxIdleConns(c.Idle)
 	// db.SetConnMaxLifetime(time.Hour)
 	return db, nil
-  }
+}

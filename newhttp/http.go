@@ -8,20 +8,27 @@ import (
 	"websocket-chat/mysql"
 )
 
-type Msg struct {
-	Uuid string 
-	ToUuid string
-	Msg string
-	Send_time string
+
+type HistoryMsg struct{
+	Err  bool			`json:"error"`
+	Code int			`json:"code"`
+	Uuid string 		`json:"uid"`
+	ToUuid string		`json:"touid"`
+	Data map[string]Msg `json:"data"`
+	ErrMsg string		`json:"err_msg"`
 }
 
-type PushMsg struct{
-	Err  bool		//是否错误
-	Code int		//错误代码
-	Uuid string 	//发送者
-	ToUuid string	//接受者
-	Data map[string]Msg  //具体数据
-	ErrMsg string	//具体错误消息
+type Msg struct {
+	Token string 		`json:"token"`
+	Uuid string 		`json:"uid"`
+	ToUuid string 		`json:"touid"`
+	Msg string			`json:"msg"`
+	Send_time string	`json:"send_time"`
+}
+//TODO:完善请求接口数据格式以及安全认证
+type Aaaa struct{
+	Uuid string 		`json:"uid"`
+	Token string 		`json:"token"`
 }
 
 func HandleHttp(w http.ResponseWriter, r *http.Request) {
@@ -48,7 +55,7 @@ func HandleGetHistory(w http.ResponseWriter, r *http.Request){
 	}
 	//TODO: 待修改历史数据格式以及传输方式
 	defer rows.Close()
-	push:=new(PushMsg)
+	push:=new(HistoryMsg)
 	i:=0
 	push.Data=make(map[string]Msg)
 	for rows.Next(){
@@ -73,4 +80,11 @@ func HandleGetHistory(w http.ResponseWriter, r *http.Request){
 	send,_:=json.Marshal(*push)
 	w.Header().Set("Content-Type", "application/json")
     w.Write(send)
+}
+
+//获取未读消息列表
+func GetMsgList(w http.ResponseWriter, r *http.Request){
+	log.Println(r.URL)
+	db := mysql.NewMysql()
+	defer db.Close()
 }

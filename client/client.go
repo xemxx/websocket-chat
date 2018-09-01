@@ -144,23 +144,23 @@ func (c *Client) pullMsg(){
 				send,_:=json.Marshal(newSend)
 				c.send<-send
 
-				//TODO:查询数据库是否有未读消息如有则推送  finish
-				rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=? order by send_time desc",0,msg.Uuid)
-				if err != nil {
-					fmt.Print(err)
-					rows.Close()
-					continue
-				}
-				//TODO:删除自动推送，采用接口请求方式获取未读消息列表，然后准确推送未读消息
-				for rows.Next(){
-					sendMsg:=new(PushMsg)
-					err = rows.Scan(&sendMsg.Uuid, &sendMsg.ToUuid,&sendMsg.Message)
-					sendMsg.Err=false
-					sendMsg.Code=200
-					send,_:=json.Marshal(*sendMsg)
-					c.send<-send
-				}
-				rows.Close()
+				// //TODO:查询数据库是否有未读消息如有则推送  finish
+				// rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=? order by send_time desc",0,msg.Uuid)
+				// if err != nil {
+				// 	fmt.Print(err)
+				// 	rows.Close()
+				// 	continue
+				// }
+				// //TODO:删除自动推送，采用接口请求方式获取未读消息列表，然后准确推送未读消息
+				// for rows.Next(){
+				// 	sendMsg:=new(PushMsg)
+				// 	err = rows.Scan(&sendMsg.Uuid, &sendMsg.ToUuid,&sendMsg.Message)
+				// 	sendMsg.Err=false
+				// 	sendMsg.Code=200
+				// 	send,_:=json.Marshal(*sendMsg)
+				// 	c.send<-send
+				// }
+				// rows.Close()
 				
 			case "send":
 				is_read:=0
@@ -194,10 +194,10 @@ func (c *Client) pullMsg(){
 	}
 }
 
-//TODO:实现日志记录
-func checkMsgErr(err error) {
-    if err != nil {
-		fmt.Print(err)
-		//TODO: 完善错误日志记录
-    }
-}
+// //TODO:实现日志记录
+// func checkMsgErr(err error) {
+//     if err != nil {
+// 		fmt.Print(err)
+// 		//TODO: 完善错误日志记录
+//     }
+// }

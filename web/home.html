@@ -75,6 +75,7 @@
                 touid:"321",
                 msg:msg.value
             };
+            console.log(send);
             conn.send(JSON.stringify(send));
             msg.value = "";
             return false;

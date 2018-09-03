@@ -118,14 +118,14 @@ func (c *Client) pullMsg(){
 			c.send<-sendMsg(&PushMsg{"",true,401,"json error","",""})
 			continue
 		}
-		if msg.Uuid!=c.uuid{
+		if (msg.Uuid!=c.uuid) && c.isBind(){
 			c.send<-sendMsg(&PushMsg{"",true,405,"uid error","",""})
 			continue
 		}
 		//TODO: 通过账户寻找发送账户是否在线并推送  finish
 		switch msg.Type{
 			case "bind":
-				if !c.isBind(){
+				if c.isBind(){
 					c.send<-sendMsg(&PushMsg{msg.Type,true,403,"请勿重复绑定","",""})
 					continue
 				}

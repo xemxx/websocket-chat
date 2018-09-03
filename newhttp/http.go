@@ -40,7 +40,7 @@ func HandleHttp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	http.ServeFile(w, r, "../web/home.html")
+	http.ServeFile(w, r, "./web/home.html")
 }
 // //TODO:优化接口，准确推送阅读消息
 // func HandleGetHistory(w http.ResponseWriter, r *http.Request){

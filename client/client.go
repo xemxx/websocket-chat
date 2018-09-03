@@ -27,21 +27,23 @@ type Client struct {
 	uuid string
 	conn *websocket.Conn
 	send chan []byte
+	join string
 }
 
 type PullMsg struct {
 	Type     string `json:"type"`
 	Uuid     string `json:"uid"`
 	ToUuid	 string `json:"touid"`
-	Message  string `json:"message"`
+	Message  string `json:"msg"`
 }
 
 type PushMsg struct{
-	Err  bool		`json:"error"`
-	Code int		`json:"code"`
-	Uuid string 	`json:"uid"`
-	ToUuid string	`json:"touid"`
+	Type 	string 	`json:"type"`
+	Err  	bool	`json:"error"`
+	Code 	int		`json:"code"`
 	Message string  `json:"msg"`
+	Uuid 	string 	`json:"uid"`
+	ToUuid 	string	`json:"touid"`
 }
 
 //TODO: 声明消息json格式
@@ -113,19 +115,20 @@ func (c *Client) pullMsg(){
 		msg:= PullMsg{}
 		if json.Unmarshal(msgJson,&msg) != nil{
 			//TODO:返回错误信息  finish 
-			newSend:=PushMsg{
-				Err:true,
-				Code:401,
-				Message:"json error",
-			}
-			send,_:=json.Marshal(newSend)
-			c.send<-send
+			c.send<-sendMsg(&PushMsg{"",true,401,"json error","",""})
 			continue
 		}
-
+		if msg.Uuid!=c.uuid{
+			c.send<-sendMsg(&PushMsg{"",true,405,"uid error","",""})
+			continue
+		}
 		//TODO: 通过账户寻找发送账户是否在线并推送  finish
 		switch msg.Type{
 			case "bind":
+				if !c.isBind(){
+					c.send<-sendMsg(&PushMsg{msg.Type,true,403,"请勿重复绑定","",""})
+					continue
+				}
 				for client:=range manager.clients{
 					//删除其他已在线的连接
 					if msg.Uuid==client.uuid{
@@ -136,53 +139,29 @@ func (c *Client) pullMsg(){
 				}
 				c.uuid=msg.Uuid
 				//反馈订阅成功
-				newSend:=PushMsg{
-					Err:false,
-					Code:200,
-					Message:"bind success",
-				}
-				send,_:=json.Marshal(newSend)
-				c.send<-send
+				c.send<-sendMsg(&PushMsg{msg.Type,false,201,"bind success","",""})
 
-				// //TODO:查询数据库是否有未读消息如有则推送  finish
-				// rows,err:=db.Query("select uid,touid,msg from msg where is_read=? and uid=? order by send_time desc",0,msg.Uuid)
-				// if err != nil {
-				// 	fmt.Print(err)
-				// 	rows.Close()
-				// 	continue
-				// }
-				// //TODO:删除自动推送，采用接口请求方式获取未读消息列表，然后准确推送未读消息
-				// for rows.Next(){
-				// 	sendMsg:=new(PushMsg)
-				// 	err = rows.Scan(&sendMsg.Uuid, &sendMsg.ToUuid,&sendMsg.Message)
-				// 	sendMsg.Err=false
-				// 	sendMsg.Code=200
-				// 	send,_:=json.Marshal(*sendMsg)
-				// 	c.send<-send
-				// }
-				// rows.Close()
-				
 			case "send":
+				if !c.isBind(){
+					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
+					continue
+				}
 				is_read:=0
 				for client:=range manager.clients{
 					//判断是否在线
 					if msg.ToUuid==client.uuid{
 						//TODO:按照固定json传输 finish
-						newSend:=PushMsg{
-							Err:false,
-							Code:200,
-							Message:msg.Message,
+						client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,client.uuid,""})
+						if client.join == msg.ToUuid{
+							is_read=1
 						}
-						send,_:=json.Marshal(newSend)
-						client.send<-send
-						is_read=1
+						break
 					}
 				}
 				//TODO: 保存读取到的消息到数据库做聊天记录  finish
 				stmt,err:=db.Prepare("insert into msg(uid,touid,send_time,is_read,msg)values(?,?,?,?,?)")
 				if err != nil {
 					fmt.Print(err)
-					stmt.Close()
 					continue
 				}
 				_,err=stmt.Exec(c.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
@@ -190,14 +169,39 @@ func (c *Client) pullMsg(){
 					fmt.Print(err)
 				}
 				stmt.Close()
+			case "join":
+				if c.isBind(){
+					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
+					continue
+				}
+				c.join=msg.ToUuid
+				c.send<-sendMsg(&PushMsg{msg.Type,false,202,"join success","",""})
+
+				rows,err:=db.Query("update msg set (is_read=0) where is_read=0 and uid=? and touid=?",msg.ToUuid,msg.Uuid)
+				if err != nil {
+					fmt.Print(err)
+					continue
+				}
+				rows.Close()
+			case "exit":
+				if c.isBind(){
+					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
+					continue
+				}
+				c.join=""
+				c.send<-sendMsg(&PushMsg{msg.Type,false,200,"exit success","",""})
 		}
 	}
 }
 
-// //TODO:实现日志记录
-// func checkMsgErr(err error) {
-//     if err != nil {
-// 		fmt.Print(err)
-// 		//TODO: 完善错误日志记录
-//     }
-// }
+func (c *Client)isBind()bool{
+	if c.uuid==""{
+		return false
+	}
+	return true;
+}
+
+func sendMsg(newSend *PushMsg)[]byte{
+	send,_:=json.Marshal(newSend)
+	return send
+}

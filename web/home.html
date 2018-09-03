@@ -69,13 +69,26 @@
             if (!msg.value) {
                 return false;
             }
-            conn.send(msg.value);
+            var send = {
+                type:"send",
+                uid:"123",
+                touid:"321",
+                msg:msg.value
+            };
+            conn.send(JSON.stringify(send));
             msg.value = "";
             return false;
         };
 
         if (window["WebSocket"]) {
             conn = new WebSocket("ws://" + document.location.host + "/ws");
+            conn.onopen= function (evt){
+                var send = {
+                    type:"bind",
+                    uid:"123",
+                };
+                conn.send(JSON.stringify(send));
+            };
             conn.onclose = function (evt) {
                 var item = document.createElement("div");
                 item.innerHTML = "<b>Connection closed.</b>";

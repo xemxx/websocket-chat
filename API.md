@@ -18,10 +18,10 @@ Description:均通过ws.send（）访问
 
 Params:
 
-```
+``` json
 {
     "type":"bind"/"send"/"join"/"exit",(sting) //通过该数据判断接口事件
-    "uid":,                            (sting) //用户id
+    "uid":,                            (sting) //用户id
     "touid":,                          (sting) //与用户交互的用户id
     "msg":                             (sting) //仅用于"send"时间
 }
@@ -29,7 +29,7 @@ Params:
 
 Return:
 
-```
+``` json
 {
     "type":"bind"/"send"/"join"/"exit", (sting)  //保留项
     "error":true/false,                 (bool)   //true为错误
@@ -46,20 +46,20 @@ Return:
 
 >bind事件
 
-Description: 推荐在onopen事件请求，用于绑定用户uid
+Description: 推荐在onopen事件请求，用于绑定用户uid
 
 Params:
 
-```
+``` json
 {
     "type":"bind", (string)
-    "uid":         (string)//绑定的用户id
+    "uid":         (string)//绑定的用户id
 }
 ```
 
-Return: 
+Return:
 
-```
+``` json
 {
     "error":true/false, (bool)   //true为错误
     "code":,            (int)    //错误代码
@@ -75,9 +75,9 @@ Description:发送消息事件
 
 Params:
 
-```
+``` json
 {
-    "type":"send" (sting) 
+    "type":"send" (sting)
     "uid":,       (sting) //发送者id(可选)
     "touid":,     (sting) //接收者id
     "msg":        (sting) //具体消息内容
@@ -86,7 +86,7 @@ Params:
 
 Return:
 
-```
+``` json
 {
     "error":true/false, (bool)   //true为错误
     "code":,            (int)    //错误代码
@@ -101,19 +101,19 @@ Return:
 
 Description: 均通过ws.send（）访问
 
-Params: 
+Params:
 
-```
+``` json
 {
-    "type":"join", (sting) 
-    "uid":,        (sting) //用户id
+    "type":"join", (sting)
+    "uid":,        (sting) //用户id
     "touid":,      (sting) //与用户交互的用户id
 }
 ```
 
-Return: 
+Return:
 
-```
+``` json
 {
     "error":true/false, (bool)   //true为错误
     "code":,            (int)    //错误代码
@@ -129,10 +129,10 @@ Description: 均通过ws.send（）访问
 
 Params:
 
-```
+``` json
 {
-    "type":"exit",(sting) 
-    "uid":,       (sting) //用户id
+    "type":"exit",(sting)
+    "uid":,       (sting) //用户id
     "touid":,     (sting) //与用户交互的用户id
     "msg":        (sting) //仅用于"send"时间
 }
@@ -140,11 +140,10 @@ Params:
 
 Return:
 
-```
+``` json
 {
     "error":true/false, (bool)   //true为错误
     "code":,            (int)    //错误代码
     "msg":,             (string) //错误消息
 }
 ```
-

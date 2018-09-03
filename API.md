@@ -46,7 +46,7 @@ Return:
 
 >bind事件
 
-Description: 推荐在onopen事件请求，用于绑定用户uid
+Description: 推荐在onopen事件请求，用于绑定用户uid
 
 Params:
 
@@ -71,7 +71,7 @@ Return:
 
 > send事件
 
-Description: 发送消息事件
+Description:发送消息事件
 
 Params:
 
@@ -99,9 +99,9 @@ Return:
 
 > join事件
 
-Description: 均通过ws.send（）访问
+Description: 均通过ws.send（）访问
 
-Params: 
+Params: 
 
 ```
 {
@@ -111,7 +111,7 @@ Params: 
 }
 ```
 
-Return: 
+Return: 
 
 ```
 {
@@ -125,7 +125,7 @@ Params: 
 
 > exit事件
 
-Description: 均通过ws.send（）访问
+Description: 均通过ws.send（）访问
 
 Params:
 
@@ -138,7 +138,7 @@ Params:
 }
 ```
 
-Return:
+Return:
 
 ```
 {

@@ -7,12 +7,13 @@ import(
     _ "github.com/go-sql-driver/mysql"
     "encoding/json"
     "net/http"
+    "github.com/go-redis/redis"
 )
 
 
 func main() {
     fmt.Println(time.Now().Unix())
-   jsontest()
+    redistest()
 }
 
 func for_switch(){
@@ -125,4 +126,24 @@ func jsontest(){
     err:=json.Unmarshal([]byte(u),&Json)
     fmt.Println(err)
     fmt.Printf("%+v\n",Json)
+}
+
+func redistest(){
+    client := redis.NewClient(&redis.Options{
+        Addr: "localhost:6379",
+        Password: "",      //默认空密码
+        DB: 0,             //使用默认数据库
+    })
+
+    defer client.Close()       //最后关闭
+
+    done := make(chan struct{})
+    go func() {
+        pubsub := client.Subscribe("mychannel")
+        msg,_ := pubsub.Receive()
+        fmt.Println("Receive from channel:", msg)
+        done <- struct {}{}
+    }()
+
+    <-done
 }

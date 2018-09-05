@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 	"websocket-chat/mysql"
+	"strconv"
 )
 
 // Configure the upgrader
@@ -164,11 +165,34 @@ func (c *Client) pullMsg(){
 					fmt.Print(err)
 					continue
 				}
-				_,err=stmt.Exec(c.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
+				res,err:=stmt.Exec(c.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
 				if err != nil {
 					fmt.Print(err)
+					continue
 				}
 				stmt.Close()
+
+				msgId,_:=res.LastInsertId()
+				a, _ := strconv.ParseInt(msg.Uuid, 10, 64)
+				b, _ :=strconv.ParseInt(msg.ToUuid, 10, 64)
+				c:=&msg.Uuid
+				d:=&msg.ToUuid
+				if a<b {
+					e:=c
+					c=d
+					d=e
+				}
+				sql:="into msglist (uid,touid,msg_id,num)values(?,?,?,1) ON DUPLICATE KEY UPDATE msg_id=? num=num+1";
+				if is_read==0{
+					sql="into msglist (uid,touid,msg_id,num)values(?,?,?,0) ON DUPLICATE KEY UPDATE msg_id=? num=0";
+				}
+				rows,err:=db.Query(sql,*c,*d,msgId,msgId)
+				if err != nil {
+				 	fmt.Print(err)
+					continue
+				}
+				rows.Close()
+
 			case "join":
 				if c.isBind(){
 					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
@@ -177,12 +201,27 @@ func (c *Client) pullMsg(){
 				c.join=msg.ToUuid
 				c.send<-sendMsg(&PushMsg{msg.Type,false,202,"join success","",""})
 
-				rows,err:=db.Query("update msg set (is_read=0) where is_read=0 and uid=? and touid=?",msg.ToUuid,msg.Uuid)
+				a, err := strconv.ParseInt(msg.Uuid, 10, 64)
+				b,err:=strconv.ParseInt(msg.ToUuid, 10, 64)
+				if a<b {
+					c:=a
+					b=a
+					a=c
+				}
+				rows,err:=db.Query("insert ignore into msglist (uid,touid)values(?,?)",a,b)
 				if err != nil {
-					fmt.Print(err)
+				 	fmt.Print(err)
 					continue
 				}
 				rows.Close()
+				
+
+				// rows,err:=db.Query("update msg set is_read=0 where is_read=0 and uid=? and touid=?",msg.ToUuid,msg.Uuid)
+				// if err != nil {
+				// 	fmt.Print(err)
+				// 	continue
+				// }
+				// rows.Close()
 			case "exit":
 				if c.isBind(){
 					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})

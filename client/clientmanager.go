@@ -11,8 +11,8 @@ type ClientManager struct {
 func newClientManager() *ClientManager {
 	return &ClientManager{
 		//broadcast:  make(chan []byte),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
+		register:   make(chan *Client,10),
+		unregister: make(chan *Client,10),
 		clients:    make(map[*Client]bool),
 	}
 }

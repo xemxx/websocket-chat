@@ -138,6 +138,7 @@ func redistest(){
     defer client.Close()       //最后关闭
 
     done := make(chan struct{})
+    client.Publish("mychannel", "hello budy!\n")
     go func() {
         pubsub := client.Subscribe("mychannel")
         msg,_ := pubsub.Receive()

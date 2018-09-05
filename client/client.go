@@ -151,7 +151,7 @@ func (c *Client) pullMsg(){
 					//判断是否在线
 					if msg.ToUuid==client.uuid{
 						//TODO:按照固定json传输 finish
-						client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,client.uuid,""})
+						client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,msg.Uuid,""})
 						if client.join == msg.ToUuid{
 							is_read=1
 						}

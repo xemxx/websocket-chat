@@ -1,6 +1,6 @@
 {
     "DSN":"root:@tcp(127.0.0.1:3306)",
-    "Databse":"chat",
+    "Database":"chat",
     "Charset":"utf8mb4",
     "Active":1,
     "Idle":1

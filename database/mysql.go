@@ -1,49 +1,53 @@
-package mysql
+package database
 import (
 	"database/sql"
 	// "time"
 	_ "github.com/go-sql-driver/mysql"
 	"os"
 	"encoding/json"
-	"fmt"
 )
 // Config is mysql config.
-type Config struct {
+type MysqlConfig struct {
 	DSN         string
+	Database	string
+	Charset		string
 	Active      int            // pool
 	Idle        int            // pool
 	// IdleTimeout time.Time    // connect max life time.
   }
 
-func getConf() (*Config,error){
-	file, err := os.Open("./conf/database.json")
+func getMysqlConf() (*MysqlConfig, error){
+	file, err := os.Open("./conf/mysql.json")
 	if err!=nil{
-		fmt.Println(err)
+		return nil,err
 	}
   	defer file.Close()
 	decoder := json.NewDecoder(file)
-	conf := Config{}
+	conf := MysqlConfig{}
 	err = decoder.Decode(&conf)
 	if err != nil {
-		return &Config{},err
+		return nil,err
 	}
 	return &conf,nil
 }
 // NewMysql initialize mysql connection .
-func NewMysql() (db *sql.DB) {
+func NewMysql(database ...string) (db *sql.DB ,err error) {
 	// TODO add query exec and transaction timeout .
-	c,err:=getConf()
+	c,err:=getMysqlConf()
 	if err!=nil{
-		fmt.Println(err)
+		return nil,err
+	}
+	if database != nil{
+		c.Database=database[0]
 	}
 	db, err = Open(c)
 	if err != nil {
 		panic(err)
 	}
-	return db
+	return db,nil
 }
-func Open(c *Config) (db *sql.DB, err error) {
-	db, err = sql.Open("mysql", c.DSN)
+func Open(c *MysqlConfig) (db *sql.DB, err error) {
+	db, err = sql.Open("mysql", c.DSN+"/"+c.Database+"?charset="+c.Charset)
 	if err != nil {
 		return nil, err
 	}

@@ -1,15 +1,17 @@
 package client
 
 import (
-	"encoding/json"
+	"github.com/json-iterator/go"
 	// "github.com/satori/go.uuid"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"fmt"
+	"log"
 	"time"
-	"websocket-chat/mysql"
+	Db "websocket-chat/database"
 	"strconv"
 )
+var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 // Configure the upgrader
 var upgrader = websocket.Upgrader{
@@ -98,11 +100,16 @@ func (c *Client) pushMsg(){
 
 //拉取消息
 func (c *Client) pullMsg(){
-	db := mysql.NewMysql()
+	mysql,err:= Db.NewMysql()
+	redis,err:=Db.NewRedis()
+	if err !=nil {
+		log.Fatal(err)
+	}
 	defer func() {
 		manager.unregister <- c
 		c.conn.Close()
-		db.Close()
+		mysql.Close()
+		redis.Close()
 	}()
 	for {
 		_,msgJson,err:=c.conn.ReadMessage()
@@ -113,8 +120,8 @@ func (c *Client) pullMsg(){
 			return
 		}
 		//TODO: 解析msg的json finish
-		msg:= PullMsg{}
-		if json.Unmarshal(msgJson,&msg) != nil{
+		msg:= &PullMsg{}
+		if json.Unmarshal(msgJson,msg) != nil{
 			//TODO:返回错误信息  finish 
 			c.send<-sendMsg(&PushMsg{"",true,401,"json error","",""})
 			continue
@@ -150,46 +157,15 @@ func (c *Client) pullMsg(){
 				is_read:=0
 				for client:=range manager.clients{
 					//判断是否在线
-					if msg.ToUuid == client.uuid && client.join == msg.ToUuid{
-						//TODO:按照固定json传输 finish
-						client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,msg.Uuid,""})
-						is_read=1
+					if msg.ToUuid == client.uuid{
+						if client.join == msg.Uuid{
+							client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,msg.Uuid,""})
+							is_read=1
+						}
 						break
 					}
 				}
-				//TODO: 保存读取到的消息到数据库做聊天记录  finish
-				stmt,err:=db.Prepare("insert into msg(uid,touid,send_time,is_read,msg)values(?,?,?,?,?)")
-				if err != nil {
-					fmt.Print(err)
-					continue
-				}
-				res,err:=stmt.Exec(c.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
-				if err != nil {
-					fmt.Print(err)
-					continue
-				}
-				stmt.Close()
-
-				msgId,_:=res.LastInsertId()
-				a, _ := strconv.ParseInt(msg.Uuid, 10, 64)
-				b, _ :=strconv.ParseInt(msg.ToUuid, 10, 64)
-				c:=&msg.Uuid
-				d:=&msg.ToUuid
-				if a<b {
-					e:=c
-					c=d
-					d=e
-				}
-				sql:="into msglist (uid,touid,msg_id,num)values(?,?,?,1) ON DUPLICATE KEY UPDATE msg_id=? num=num+1";
-				if is_read==0{
-					sql="into msglist (uid,touid,msg_id,num)values(?,?,?,0) ON DUPLICATE KEY UPDATE msg_id=? num=0";
-				}
-				rows,err:=db.Query(sql,*c,*d,msgId,msgId)
-				if err != nil {
-				 	fmt.Print(err)
-					continue
-				}
-				rows.Close()
+				go c.saveMsg(msg,&is_read)
 
 			case "join":
 				if !c.isBind(){
@@ -199,27 +175,22 @@ func (c *Client) pullMsg(){
 				c.join=msg.ToUuid
 				c.send<-sendMsg(&PushMsg{msg.Type,false,202,"join success","",""})
 
-				a, err := strconv.ParseInt(msg.Uuid, 10, 64)
-				b,err:=strconv.ParseInt(msg.ToUuid, 10, 64)
+				a, _ := strconv.ParseInt(msg.Uuid, 10, 64)
+				b, _ :=strconv.ParseInt(msg.ToUuid, 10, 64)
+				c:=msg.Uuid
+				d:=msg.ToUuid
 				if a<b {
-					c:=a
-					b=a
-					a=c
+					e:=c
+					c=d
+					d=e
 				}
-				rows,err:=db.Query("insert ignore into msglist (uid,touid)values(?,?)",a,b)
+				rows,err:=mysql.Query("insert ignore into msglist (uid,touid)values(?,?)",c,d)
 				if err != nil {
 				 	fmt.Print(err)
 					continue
 				}
 				rows.Close()
-				
 
-				// rows,err:=db.Query("update msg set is_read=0 where is_read=0 and uid=? and touid=?",msg.ToUuid,msg.Uuid)
-				// if err != nil {
-				// 	fmt.Print(err)
-				// 	continue
-				// }
-				// rows.Close()
 			case "exit":
 				if c.isBind(){
 					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
@@ -241,4 +212,47 @@ func (c *Client)isBind()bool{
 func sendMsg(newSend *PushMsg)[]byte{
 	send,_:=json.Marshal(newSend)
 	return send
+}
+
+func (client *Client)saveMsg(msg *PullMsg,is_read *int){
+	mysql,err:= Db.NewMysql()
+	if err !=nil {
+		log.Fatal(err)
+	}
+	redis,err:=Db.NewRedis()
+	if err !=nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		mysql.Close()
+		redis.Close()
+	}()
+	stmt,err:=mysql.Prepare("insert into msg(uid,touid,send_time,is_read,msg)values(?,?,?,?,?)")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer stmt.Close()
+	res,err:=stmt.Exec(client.uuid,msg.ToUuid,time.Now().Unix(),is_read,msg.Message)
+	if err != nil {
+		log.Fatal(err)
+	}
+	msgId,_:=res.LastInsertId()
+	a, _ := strconv.ParseInt(msg.Uuid, 10, 64)
+	b, _ :=strconv.ParseInt(msg.ToUuid, 10, 64)
+	c:=msg.Uuid
+	d:=msg.ToUuid
+	if a<b {
+		e:=c
+		c=d
+		d=e
+	}
+	sql:="insert into msglist (uid,touid,msg_id,num)values(?,?,?,1) ON DUPLICATE KEY UPDATE msg_id=?,num=num+1";
+	if *is_read == 1{
+		sql="insert into msglist (uid,touid,msg_id,num)values(?,?,?,0) ON DUPLICATE KEY UPDATE msg_id=?,num=0";
+	}
+	rows,err:=mysql.Query(sql,c,d,msgId,msgId)
+	if err != nil {
+		fmt.Print(err)
+	}
+	defer rows.Close()
 }

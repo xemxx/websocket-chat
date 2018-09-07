@@ -8,12 +8,22 @@ import(
     "encoding/json"
     "net/http"
     "github.com/go-redis/redis"
+    Db "websocket-chat/database"
 )
 
 
 func main() {
     fmt.Println(time.Now().Unix())
     redistest()
+}
+
+func dbTest(){
+    mysql,err:= Db.NewMysql("home")
+    if err != nil {
+        fmt.Println(err)
+        return 
+    }
+    defer mysql.Close()
 }
 
 func for_switch(){

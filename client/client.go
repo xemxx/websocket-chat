@@ -100,16 +100,9 @@ func (c *Client) pushMsg(){
 
 //拉取消息
 func (c *Client) pullMsg(){
-	mysql,err:= Db.NewMysql()
-	redis,err:=Db.NewRedis()
-	if err !=nil {
-		log.Fatal(err)
-	}
 	defer func() {
 		manager.unregister <- c
 		c.conn.Close()
-		mysql.Close()
-		redis.Close()
 	}()
 	for {
 		_,msgJson,err:=c.conn.ReadMessage()
@@ -120,85 +113,7 @@ func (c *Client) pullMsg(){
 			return
 		}
 		//TODO: 解析msg的json finish
-		msg:= &PullMsg{}
-		if json.Unmarshal(msgJson,msg) != nil{
-			//TODO:返回错误信息  finish 
-			c.send<-sendMsg(&PushMsg{"",true,401,"json error","",""})
-			continue
-		}
-		if (msg.Uuid!=c.uuid) && c.isBind(){
-			c.send<-sendMsg(&PushMsg{"",true,405,"uid error","",""})
-			continue
-		}
-		//TODO: 通过账户寻找发送账户是否在线并推送  finish
-		switch msg.Type{
-			case "bind":
-				if c.isBind(){
-					c.send<-sendMsg(&PushMsg{msg.Type,true,403,"请勿重复绑定","",""})
-					continue
-				}
-				for client:=range manager.clients{
-					//删除其他已在线的连接
-					if msg.Uuid==client.uuid{
-						client.conn.Close()
-						manager.unregister <- client
-						//TODO:改为redis的方式解决登录和注销问题
-					}
-				}
-				c.uuid=msg.Uuid
-				//反馈订阅成功
-				c.send<-sendMsg(&PushMsg{msg.Type,false,201,"bind success","",""})
-
-			case "send":
-				if !c.isBind(){
-					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
-					continue
-				}
-				is_read:=0
-				for client:=range manager.clients{
-					//判断是否在线
-					if msg.ToUuid == client.uuid{
-						if client.join == msg.Uuid{
-							client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,msg.Uuid,""})
-							is_read=1
-						}
-						break
-					}
-				}
-				go c.saveMsg(msg,&is_read)
-
-			case "join":
-				if !c.isBind(){
-					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
-					continue
-				}
-				c.join=msg.ToUuid
-				c.send<-sendMsg(&PushMsg{msg.Type,false,202,"join success","",""})
-
-				a, _ := strconv.ParseInt(msg.Uuid, 10, 64)
-				b, _ :=strconv.ParseInt(msg.ToUuid, 10, 64)
-				c:=msg.Uuid
-				d:=msg.ToUuid
-				if a<b {
-					e:=c
-					c=d
-					d=e
-				}
-				rows,err:=mysql.Query("insert ignore into msglist (uid,touid)values(?,?)",c,d)
-				if err != nil {
-				 	fmt.Print(err)
-					continue
-				}
-				rows.Close()
-
-			case "exit":
-				if c.isBind(){
-					c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
-					continue
-				}
-				c.join=""
-				c.send<-sendMsg(&PushMsg{msg.Type,false,200,"exit success","",""})
-		}
+		go c.sovelMsg(msgJson)
 	}
 }
 
@@ -219,13 +134,8 @@ func (client *Client)saveMsg(msg *PullMsg,is_read *int){
 	if err !=nil {
 		log.Fatal(err)
 	}
-	redis,err:=Db.NewRedis()
-	if err !=nil {
-		log.Fatal(err)
-	}
 	defer func() {
 		mysql.Close()
-		redis.Close()
 	}()
 	stmt,err:=mysql.Prepare("insert into msg(uid,touid,send_time,is_read,msg)values(?,?,?,?,?)")
 	if err != nil {
@@ -255,4 +165,85 @@ func (client *Client)saveMsg(msg *PullMsg,is_read *int){
 		fmt.Print(err)
 	}
 	defer rows.Close()
+}
+
+func (c *Client)sovelMsg(msgJson []byte){
+	mysql,err:= Db.NewMysql()
+	if err !=nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		mysql.Close()
+	}()
+	msg:= &PullMsg{}
+	if json.Unmarshal(msgJson,msg) != nil{
+		//TODO:返回错误信息  finish 
+		c.send<-sendMsg(&PushMsg{"",true,401,"json error","",""})
+		return
+	}
+	if (msg.Uuid!=c.uuid) && c.isBind(){
+		c.send<-sendMsg(&PushMsg{"",true,405,"uid error","",""})
+		return
+	}
+	if !c.isBind() && msg.Type != "bind" {
+		c.send<-sendMsg(&PushMsg{msg.Type,true,402,"请先绑定后请求","",""})
+		return
+	}
+	//TODO: 通过账户寻找发送账户是否在线并推送  finish
+	switch msg.Type{
+		case "bind":
+			if c.isBind(){
+				c.send<-sendMsg(&PushMsg{msg.Type,true,403,"请勿重复绑定","",""})
+				return
+			}
+			for client:=range manager.clients{
+				//删除其他已在线的连接
+				if msg.Uuid==client.uuid{
+					client.conn.Close()
+					manager.unregister <- client
+					//TODO:改为redis的方式解决登录和注销问题
+				}
+			}
+			c.uuid=msg.Uuid
+			//反馈订阅成功
+			c.send<-sendMsg(&PushMsg{msg.Type,false,201,"bind success","",""})
+
+		case "send":
+			is_read:=0
+			for client:=range manager.clients{
+				//判断是否在线
+				if msg.ToUuid == client.uuid{
+					if client.join == msg.Uuid{
+						client.send<-sendMsg(&PushMsg{msg.Type,false,200,msg.Message,msg.Uuid,""})
+						is_read=1
+					}
+					break
+				}
+			}
+			go c.saveMsg(msg,&is_read)
+
+		case "join":
+			c.join=msg.ToUuid
+			c.send<-sendMsg(&PushMsg{msg.Type,false,202,"join success","",""})
+
+			a, _ := strconv.ParseInt(msg.Uuid, 10, 64)
+			b, _ :=strconv.ParseInt(msg.ToUuid, 10, 64)
+			c:=msg.Uuid
+			d:=msg.ToUuid
+			if a<b {
+				e:=c
+				c=d
+				d=e
+			}
+			rows,err:=mysql.Query("insert ignore into msglist (uid,touid)values(?,?)",c,d)
+			if err != nil {
+				fmt.Print(err)
+				return
+			}
+			rows.Close()
+
+		case "exit":
+			c.join=""
+			c.send<-sendMsg(&PushMsg{msg.Type,false,200,"exit success","",""})
+	}
 }

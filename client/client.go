@@ -1,15 +1,16 @@
 package client
 
 import (
-	"github.com/json-iterator/go"
-	// "github.com/satori/go.uuid"
-	"github.com/gorilla/websocket"
-	"net/http"
 	"fmt"
 	"log"
-	"time"
-	Db "websocket-chat/database"
+	"net/http"
 	"strconv"
+	"time"
+	// "github.com/satori/go.uuid"
+	"github.com/gorilla/websocket"
+	"github.com/json-iterator/go"
+	Db "websocket-chat/database"
+
 )
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
@@ -156,9 +157,9 @@ func (client *Client)saveMsg(msg *PullMsg,is_read *int){
 		c=d
 		d=e
 	}
-	sql:="insert into msglist (uid,touid,msg_id,num)values(?,?,?,1) ON DUPLICATE KEY UPDATE msg_id=?,num=num+1";
+	sql:="insert into msglist (uid,touid,msg_id,num)values(?,?,?,1) ON DUPLICATE KEY UPDATE msg_id=?,num=num+1"
 	if *is_read == 1{
-		sql="insert into msglist (uid,touid,msg_id,num)values(?,?,?,0) ON DUPLICATE KEY UPDATE msg_id=?,num=0";
+		sql="insert into msglist (uid,touid,msg_id,num)values(?,?,?,0) ON DUPLICATE KEY UPDATE msg_id=?,num=0"
 	}
 	rows,err:=mysql.Query(sql,c,d,msgId,msgId)
 	if err != nil {

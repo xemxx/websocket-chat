@@ -1,11 +1,10 @@
 package main
 
 import (
-	"net/http"
 	"flag"
-	"websocket-chat/client"
 	"fmt"
-	// "websocket-chat/newhttp"
+	"net/http"
+	"websocket-chat/client"
 )
 
 var addr = flag.String("addr", ":8080", "http service address")

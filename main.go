@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
-	// "websocket-chat/newhttp"
 	"websocket-chat/client"
 )
 
